@@ -14,9 +14,31 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // 🔐 Dados fixos do usuário master
+  const MASTER_EMAIL = "master@master.com";
+  const MASTER_PASSWORD = "123456"; // Senha direta para login offline
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const isOffline = !navigator.onLine;
+    const isMaster = email.trim() === MASTER_EMAIL;
+
+    if (isOffline && isMaster) {
+      if (password === MASTER_PASSWORD) {
+        localStorage.setItem("user", JSON.stringify({
+          uid: "offline-master",
+          email: MASTER_EMAIL,
+          accountType: "master",
+        }));
+        router.push("/dashboardprof");
+        return;
+      } else {
+        setError("Senha incorreta para login offline.");
+        return;
+      }
+    }
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -24,7 +46,6 @@ const Login: React.FC = () => {
 
       console.log("Usuário logado:", user.uid);
 
-      // 🔹 Buscar tipo do usuário no Realtime Database
       const userRef = ref(database, `users/${user.uid}`);
       const snapshot = await get(userRef);
 
@@ -36,7 +57,6 @@ const Login: React.FC = () => {
       const userType = snapshot.val().accountType;
       localStorage.setItem("user", JSON.stringify({ ...snapshot.val(), uid: user.uid }));
 
-      // 🔄 Redirecionamento baseado no tipo de usuário
       router.push(userType === "professor" ? "/dashboardprof" : "/dashboardaluno");
     } catch (err: any) {
       console.error("Erro no login:", err);
@@ -47,8 +67,7 @@ const Login: React.FC = () => {
   return (
     <div className="h-screen w-screen flex items-center justify-start bg-cover bg-center fixed top-0 left-0"
       style={{ backgroundImage: "url('/images/FundoCanva.png')", backgroundSize: "cover", backgroundAttachment: "fixed" }}>
-      
-      {/* 🔹 Ícone de voltar */}
+
       <ArrowBackIcon className="absolute top-4 left-4 text-white cursor-pointer hover:scale-110 transition"
         fontSize="large" onClick={() => router.push("/")} />
 
@@ -85,7 +104,7 @@ const Login: React.FC = () => {
         </form>
 
         <p className="text-white text-center text-sm mt-3">
-          Ainda não tem uma conta? {" "}
+          Ainda não tem uma conta?{" "}
           <a href="/cadastro" className="text-purple-400 font-bold hover:underline">
             Cadastre-se
           </a>
