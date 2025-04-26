@@ -108,7 +108,7 @@ const EscolhasCriadasOuCriarProf: React.FC = () => {
               </li>
               <li>
                 <button
-                  onClick={() => router.push("/simulacoesprof")}
+                  onClick={() => router.push("/simuproftestesupabase")}
                   className="text-white px-6 py-3 rounded-md font-bold border border-purple-400"
                 >
                   Simulações
@@ -130,7 +130,7 @@ const EscolhasCriadasOuCriarProf: React.FC = () => {
         <div className="flex justify-center">
           <div className="bg-purple-800 border border-purple-300 text-white p-8 rounded-xl shadow-lg w-full max-w-md text-center relative">
             <button
-              onClick={() => router.push("/simulacoesprof")}
+              onClick={() => router.push("/simuproftestesupabase")}
               className="absolute top-4 left-4 text-white hover:text-gray-300"
             >
               <ArrowLeft size={28} />

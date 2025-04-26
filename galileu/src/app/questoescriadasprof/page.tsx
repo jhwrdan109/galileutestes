@@ -15,7 +15,7 @@ import Image from "next/image";
 interface Questao {
   enunciado: string;
   resolucao: string;
-  alternativas: string[];
+  alternativas: { [key: string]: string }; // Alternativas agora são um objeto
   incognita: string;
   alternativaCorreta: string;
   criadoEm: string;
@@ -44,7 +44,7 @@ const QuestoesCriadasProf = () => {
   useEffect(() => {
     if (userId) {
       const db = getDatabase(app);
-      const questoesRef = ref(db, `questoesPorProfessor/${userId}/questoes`);
+      const questoesRef = ref(db, `questoes/${userId}`);
       onValue(questoesRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -186,8 +186,8 @@ const QuestoesCriadasProf = () => {
               <p className="mb-2"><strong>Resolução:</strong> {questaoSelecionada.resolucao}</p>
               <p className="mb-2"><strong>Alternativas:</strong></p>
               <ul className="list-disc list-inside ml-4 mb-2">
-                {questaoSelecionada.alternativas.map((alt, i) => (
-                  <li key={i}>{String.fromCharCode(65 + i)} - {alt}</li>
+                {Object.entries(questaoSelecionada.alternativas).map(([key, value]) => (
+                  <li key={key}>{key} - {value}</li>
                 ))}
               </ul>
               <p className="mb-2"><strong>Alternativa Correta:</strong> {questaoSelecionada.alternativaCorreta}</p>

@@ -1,17 +1,16 @@
-"use client"
+"use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { get, ref } from "firebase/database"; // Importação do Firebase
-import { database } from "../../../lib/firebaseConfig"; // Certifique-se de que a configuração do Firebase está correta
+import { supabase } from "../../../lib/supabase"; // Importe a instância do Supabase
 
 const CodigoAluno: React.FC = () => {
   const router = useRouter();
   const [userName, setUserName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [codigo, setCodigo] = useState<string>(""); 
-  const [codigoInvalido, setCodigoInvalido] = useState<boolean>(false); // Estado para mensagem de código inválido
+  const [codigoDigitado, setCodigoDigitado] = useState<string>("");
+  const [codigoInvalido, setCodigoInvalido] = useState<boolean>(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -30,26 +29,32 @@ const CodigoAluno: React.FC = () => {
 
   const handleCodigoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.value.length <= 6) {
-      setCodigo(event.target.value);
+      setCodigoDigitado(event.target.value.toUpperCase());
     }
   };
 
   const handleSubmitCodigo = async () => {
-    if (codigo.length === 6) {
-      const salaRef = ref(database, "salas/" + codigo);
-      
+    if (codigoDigitado.length === 6) {
       try {
-        const snapshot = await get(salaRef);
-        if (snapshot.exists()) {
-          console.log("Código válido! Redirecionando para a sala...");
-          router.push("/saladeaula"); // Aqui o redirecionamento realmente ocorre
+        const { data, error } = await supabase
+          .from("salas")
+          .select("id")
+          .eq("codigo", codigoDigitado.toUpperCase())
+          .single(); // Espera-se apenas um resultado com o código
+
+        if (error) {
+          console.error("Erro ao verificar código no Supabase:", error);
+          setCodigoInvalido(true);
+        } else if (data) {
+          console.log("Código válido! Redirecionando para a sala com ID:", data.id);
+          router.push(`/saladeaulatestesupabase/${data.id}`); // Redireciona para a sala, passando o ID
         } else {
-          setCodigoInvalido(true); // Código inválido
+          setCodigoInvalido(true);
           console.log("Código inválido!");
         }
       } catch (error) {
-        console.error("Erro ao verificar código no Firebase: ", error);
-        setCodigoInvalido(true); // Em caso de erro na consulta
+        console.error("Erro inesperado ao verificar código:", error);
+        setCodigoInvalido(true);
       }
     } else {
       alert("Por favor, insira um código de 6 dígitos.");
@@ -140,15 +145,14 @@ const CodigoAluno: React.FC = () => {
 
             <input
               type="text"
-              value={codigo}
+              value={codigoDigitado}
               onChange={handleCodigoChange}
               maxLength={6}
-              className="w-full p-4 text-4xl text-center border-2 border-purple-400 rounded-md text-black mb-6"
+              className="w-full p-4 text-4xl text-center border-2 border-purple-400 rounded-md text-black mb-6 uppercase"
               placeholder="_____"
               autoFocus
             />
 
-            {/* Mensagem de código inválido */}
             {codigoInvalido && (
               <div className="text-red-500 text-xl mb-4">
                 Código inválido. Tente novamente.

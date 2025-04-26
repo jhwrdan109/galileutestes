@@ -36,7 +36,6 @@ const SimulacoesProf: React.FC = () => {
       {/* Imagem fixa na esquerda */}
       <div className="hidden md:block  fixed left-0 bottom-0 z-10">
         <Image
-        
           src="/images/galileufrente.png"
           alt="Galileu"
           width={300} // Ajuste o tamanho conforme necessário
@@ -60,7 +59,7 @@ const SimulacoesProf: React.FC = () => {
           <nav>
             <ul className="flex flex-wrap justify-center gap-6">
               <li>
-                <button 
+                <button
                   onClick={() => router.push("/dashboardprof")}
                   className="text-white hover:text-purple-300 px-6 py-3 rounded-md transition duration-300"
                 >
@@ -68,7 +67,7 @@ const SimulacoesProf: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => router.push("/quemsomosprof")}
                   className="text-white hover:text-purple-300 px-6 py-3 rounded-md transition duration-300"
                 >
@@ -76,7 +75,7 @@ const SimulacoesProf: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => router.push("")}
                   className="text-white px-6 py-3 rounded-md font-bold border border-purple-400"
                 >
@@ -84,7 +83,7 @@ const SimulacoesProf: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => router.push("/editarperfilprof")}
                   className="bg-purple-600 text-white px-8 py-3 rounded-md font-bold transition duration-300"
                 >
@@ -99,14 +98,16 @@ const SimulacoesProf: React.FC = () => {
           <h1 className="text-6xl md:text-4xl font-bold text-white mb-8">Simulações</h1>
           <div className="flex flex-col gap-6">
             <button
-            onClick={() => router.push("/criarsalaprof")}
-            className="bg-gray-200 text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 text-lg shadow-md hover:bg-gray-300 transition duration-300">
+              onClick={() => router.push("/criarsalaproftestesupabase")}
+              className="bg-gray-200 text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 text-lg shadow-md hover:bg-gray-300 transition duration-300"
+            >
               ➕ Criar Nova Sala de Aula
             </button>
-            <button 
-            onClick={() => router.push("/escolhacriadasoucriarprof")}
-            className="bg-gray-200 text-black px-6 py-3 rounded-md font-bold flex items-center gap-2 text-lg shadow-md hover:bg-gray-300 transition duration-300">
-               Questões 
+            <button
+              onClick={() => router.push("/escolhacriadasoucriarprof")}
+              className="bg-gray-200 text-black px-6 py-3 rounded-md font-bold flex items-center gap-2 text-lg shadow-md hover:bg-gray-300 transition duration-300"
+            >
+              Questões
             </button>
           </div>
         </main>

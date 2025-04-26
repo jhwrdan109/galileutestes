@@ -54,10 +54,10 @@ const Login: React.FC = () => {
         return;
       }
 
-      const userType = snapshot.val().accountType;
-      localStorage.setItem("user", JSON.stringify({ ...snapshot.val(), uid: user.uid }));
+      const userDataFromDB = snapshot.val();
+      localStorage.setItem("user", JSON.stringify({ ...userDataFromDB, uid: user.uid })); // Incluímos o uid aqui
 
-      router.push(userType === "professor" ? "/dashboardprof" : "/dashboardaluno");
+      router.push(userDataFromDB.accountType === "professor" ? "/dashboardprof" : "/dashboardaluno");
     } catch (err: any) {
       console.error("Erro no login:", err);
       setError("Erro ao fazer login. Verifique suas credenciais!");

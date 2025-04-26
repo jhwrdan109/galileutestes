@@ -1,32 +1,41 @@
-'use client'
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import {
-  Paperclip,
-  Clock,
-  CheckCircle,
-  ArrowLeft,
-  XCircle,
-} from "lucide-react";
-import { getDatabase, ref, push } from "firebase/database";
-import { app } from "../../../lib/firebaseConfig";
+'use client';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabase';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { database } from '../../../lib/firebaseConfig';
+import { ref, set } from 'firebase/database';
+import { ArrowLeft, Paperclip } from 'lucide-react';
+import { Clock, XCircle } from 'lucide-react';
 
-const CriarQuestaoprof: React.FC = () => {
-  const router = useRouter();
-  const [enunciado, setEnunciado] = useState("");
-  const [resolucao, setResolucao] = useState("");
-  const [alternativas, setAlternativas] = useState("");
-  const [incognita, setIncognita] = useState("");
-  const [alternativaCorreta, setAlternativaCorreta] = useState("A");
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+const CriarQuestao = () => {
+  const [enunciado, setEnunciado] = useState('');
+  const [resolucao, setResolucao] = useState('');
+  const [alternativas, setAlternativas] = useState('');
+  const [incognita, setIncognita] = useState('');
+  const [tempoMinutos, setTempoMinutos] = useState(0);
+  const [tempoSegundos, setTempoSegundos] = useState(0);
   const [anexo, setAnexo] = useState<File | null>(null);
-  const [tempoMinutos, setTempoMinutos] = useState<number>(0);
-  const [tempoSegundos, setTempoSegundos] = useState<number>(0);
-  const [mostrarModalAnexo, setMostrarModalAnexo] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [mostrarModalTempo, setMostrarModalTempo] = useState(false);
-  const [anexoBase64, setAnexoBase64] = useState<string | null>(null);
+  const [alternativaCorreta, setAlternativaCorreta] = useState<string>('');
+  const [erros, setErros] = useState<{
+    enunciado: string;
+    resolucao: string;
+    alternativas: string;
+    incognita: string;
+    alternativaCorreta: string;
+  }>({
+    enunciado: '',
+    resolucao: '',
+    alternativas: '',
+    incognita: '',
+    alternativaCorreta: '',
+  });
+  const router = useRouter();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -34,236 +43,359 @@ const CriarQuestaoprof: React.FC = () => {
       const user = JSON.parse(storedUser);
       setUserName(`Prof. ${user.name || user.email}`);
       setUserId(user.uid);
+      setLoading(false);
     } else {
       router.push("/login");
     }
   }, [router]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setAnexo(file);
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center text-white text-xl">Carregando...</div>;
+  }
 
-      // Convert to base64
+  const handleAnexoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAnexo(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAnexoBase64(reader.result as string);
+        setImageUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const handleRemoveImage = () => {
+    setAnexo(null);
+    setImageUrl(null);
+  };
+
   const handleSalvarQuestao = async () => {
     if (!userId) return;
 
-    const tempoTotal = tempoMinutos * 60 + tempoSegundos; // Converte para segundos
+    const novosErros = {
+      enunciado: !enunciado.trim() ? 'O enunciado é obrigatório.' : '',
+      resolucao: !resolucao.trim() ? 'A resolução é obrigatória.' : '',
+      alternativas: !alternativas.trim() ? 'As alternativas são obrigatórias.' : '',
+      incognita: !incognita ? 'A incógnita é obrigatória.' : '',
+      alternativaCorreta: !alternativaCorreta ? 'A alternativa correta é obrigatória.' : '',
+    };
+    setErros(novosErros);
+
+    if (Object.values(novosErros).some((erro) => erro !== '')) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    const tempoTotal = Math.max(0, tempoMinutos * 60 + tempoSegundos); // Impede tempo negativo
+    let anexoUrl: string | null = null;
+
+    if (anexo) {
+      try {
+        const filePath = `questoes/${userId}/${Date.now()}-${anexo.name}`;
+        const { data, error } = await supabase.storage
+          .from('arquivos')
+          .upload(filePath, anexo);
+
+        if (error) return;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('arquivos')
+          .getPublicUrl(data.path);
+
+        anexoUrl = publicUrlData?.publicUrl || null;
+      } catch {
+        return;
+      }
+    }
+
+    const letras = ['A', 'B', 'C', 'D', 'E'];
+    const alternativasObj: { [key: string]: string } = {};
+    const alternativasArray = alternativas.split(',').map((alt) => alt.trim());
+    for (let i = 0; i < letras.length; i++) {
+      alternativasObj[letras[i]] = alternativasArray[i] || '';
+    }
+
+    const chaveQuestao = enunciado.trim().substring(0, 20).replace(/\s+/g, '_');
 
     const novaQuestao = {
       enunciado,
       resolucao,
-      alternativas: alternativas.split(",").map((alt) => alt.trim()),
-      incognita,
+      alternativas: alternativasObj,
       alternativaCorreta,
+      incognita,
       criadoEm: new Date().toISOString(),
       professor: userName,
+      professorId: userId,
       tempo: tempoTotal,
-      anexo: anexoBase64, // Store base64 encoded image
+      anexo: anexoUrl,
     };
 
     try {
-      const db = getDatabase(app);
-      const questoesRef = ref(db, `questoesPorProfessor/${userId}/questoes`);
-      await push(questoesRef, novaQuestao);
-      alert("Questão salva com sucesso!");
-      
-    } catch (error) {
-      console.error("Erro ao salvar a questão:", error);
-      alert("Erro ao salvar a questão. Tente novamente.");
+      const questaoRef = ref(database, `questoes/${userId}/${chaveQuestao}`);
+      await set(questaoRef, novaQuestao);
+
+      alert('Questão salva com sucesso!');
+      setEnunciado('');
+      setResolucao('');
+      setAlternativas('');
+      setIncognita('');
+      setTempoMinutos(0);
+      setTempoSegundos(0);
+      setAnexo(null);
+      setImageUrl(null);
+      setAlternativaCorreta('');
+
+      // Redireciona para a página de escolha após salvar
+      router.push("/escolhacriadasoucriarprof");
+    } catch {
+      alert('Erro ao salvar a questão.');
     }
   };
 
-  const ModalAnexo = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-purple-700 p-8 rounded-lg shadow-lg w-1/2 relative">
-        <button
-          onClick={() => setMostrarModalAnexo(false)}
-          className="absolute top-2 right-2 text-white hover:text-red-600"
-        >
-          <XCircle size={24} />
-        </button>
-        <h2 className="text-2xl font-bold text-white mb-4">Anexar Imagem</h2>
-        <input
-          type="file"
-          onChange={handleFileChange}
-          className="mb-4 text-white border border-purple-400 rounded-lg p-3 bg-purple-900"
-        />
-        {anexo && (
-          <div className="mb-4">
-            <p className="text-sm text-white">Arquivo selecionado: {anexo.name}</p>
-            <div className="mt-2 border-2 border-purple-500 p-2 rounded-lg">
-              <Image
-                src={URL.createObjectURL(anexo)}
-                alt="Pré-visualização"
-                width={300}
-                height={200}
-                className="rounded-lg"
-              />
-            </div>
-          </div>
-        )}
-        <button
-          onClick={() => setMostrarModalAnexo(false)}
-          className="mt-4 bg-purple-800 text-white px-4 py-2 rounded hover:bg-purple-600"
-        >
-          Confirmar
-        </button>
-      </div>
-    </div>
-  );
-
-  const ModalTempo = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-purple-700 p-8 rounded-lg shadow-lg w-1/3 relative">
-        <button
-          onClick={() => setMostrarModalTempo(false)}
-          className="absolute top-2 right-2 text-white hover:text-red-600"
-        >
-          <XCircle size={24} />
-        </button>
-        <h2 className="text-2xl font-bold text-white mb-4">Definir Tempo</h2>
-        <div className="flex gap-4 items-center">
-          <div className="w-full">
-            <label className="text-white">Minutos</label>
-            <input
-              type="number"
-              value={tempoMinutos}
-              onChange={(e) => setTempoMinutos(Number(e.target.value))}
-              className="w-full p-3 border border-purple-400 rounded-lg bg-purple-900 text-white"
-              min={0}
-            />
-          </div>
-          <div className="w-full">
-            <label className="text-white">Segundos</label>
-            <input
-              type="number"
-              value={tempoSegundos}
-              onChange={(e) => setTempoSegundos(Number(e.target.value))}
-              className="w-full p-3 border border-purple-400 rounded-lg bg-purple-900 text-white"
-              min={0}
-              max={59}
-            />
-          </div>
-        </div>
-        <button
-          onClick={() => setMostrarModalTempo(false)}
-          className="mt-4 bg-purple-800 text-white px-4 py-2 rounded hover:bg-purple-600"
-        >
-          Confirmar
-        </button>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-cover bg-center relative" style={{ backgroundImage: "url('/images/FundoCanva.png')" }}>
-      <div className="container mx-auto px-4 py-6">
-        {/* Header and navigation */}
+    <div
+      className="min-h-screen bg-cover bg-center relative"
+      style={{
+        backgroundImage: "url('/images/FundoCanva.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Imagem fixa na esquerda */}
+      <div className="hidden md:block fixed left-0 bottom-0 z-10">
+        <Image
+          src="/images/galileufrente.png"
+          alt="Galileu"
+          width={200} // Ajuste o tamanho conforme necessário
+          height={300}
+          className="object-contain"
+        />
       </div>
-
-      <div className="flex flex-col items-center justify-center text-center">
-        <div className="bg-purple-900 p-6 rounded-lg shadow-lg border border-purple-300 max-w-xl w-full text-center relative">
-          <button
-            onClick={() => router.push("/escolhacriadasoucriarprof")}
-            className="absolute top-4 left-4 text-white hover:text-purple-300 transition duration-300"
-          >
-            <ArrowLeft size={32} />
-          </button>
-
-          <h1 className="text-3xl font-bold text-white mb-6">Criar Questão</h1>
-
-          <label className="block text-white text-left">Enunciado:</label>
-          <textarea
-            placeholder="Digite o enunciado da questão..."
-            value={enunciado}
-            onChange={(e) => setEnunciado(e.target.value)}
-            className="w-full p-3 rounded-md text-black border border-gray-300 resize-none h-24 mb-4"
-          ></textarea>
-
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setMostrarModalAnexo(true)}
-              className="flex items-center gap-2 text-white hover:text-purple-300 transition duration-300"
-            >
-              <Paperclip size={24} /> Anexar Imagem
-            </button>
-            <button
-              onClick={() => setMostrarModalTempo(true)}
-              className="flex items-center gap-2 text-white hover:text-purple-300 transition duration-300"
-            >
-              <Clock size={24} /> Definir Tempo
-            </button>
-          </div>
-
-          <div className="mt-6">
-            <label className="block text-white text-left">Resolução:</label>
-            <textarea
-              placeholder="Resolução da questão..."
-              value={resolucao}
-              onChange={(e) => setResolucao(e.target.value)}
-              className="w-full p-3 rounded-md text-black border border-gray-300 resize-none h-20 mb-4"
-            ></textarea>
-
-            <label className="block text-white text-left">Alternativas:</label>
-            <input
-              type="text"
-              placeholder="Alternativas (separadas por vírgula)"
-              value={alternativas}
-              onChange={(e) => setAlternativas(e.target.value)}
-              className="w-full p-3 rounded-md text-black border border-gray-300 mb-4"
+      <div className="container mx-auto px-4 py-8">
+        <header className="flex flex-col md:flex-row justify-between items-center mb-16">
+          <div className="mb-6 md:mb-0">
+            <Image
+              src="/images/markim-Photoroom.png"
+              alt="Logo Projeto Galileu"
+              width={150}
+              height={50}
+              className="hover:scale-105 transition-transform duration-300"
             />
-
-            <label className="block text-white text-left">Incógnita:</label>
-            <select
-              value={incognita}
-              onChange={(e) => setIncognita(e.target.value)}
-              className="w-full p-3 rounded-md text-black border border-gray-300 mb-4"
-            >
-              <option value="">Selecione uma incógnita</option>
-              <option value="velocidade">Velocidade</option>
-              <option value="px">Px</option>
-              <option value="py">Py</option>
-              <option value="força normal">Força Normal</option>
-              <option value="força de atrito">Força de Atrito</option>
-              <option value="aceleração">Aceleração</option>
-            </select>
-
-            <label className="block text-white text-left">Alternativa Correta:</label>
-            <select
-              value={alternativaCorreta}
-              onChange={(e) => setAlternativaCorreta(e.target.value)}
-              className="w-full p-3 rounded-md text-black border border-gray-300 mb-4"
-            >
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="E">E</option>
-            </select>
           </div>
+          <nav>
+            <ul className="flex flex-wrap justify-center gap-6">
+              <li>
+                <button
+                  onClick={() => router.push('/dashboardprof')}
+                  className="text-white hover:text-purple-300 px-6 py-3 rounded-md transition duration-300"
+                >
+                  Início
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/quemsomosprof')}
+                  className="text-white hover:text-purple-300 px-6 py-3 rounded-md transition duration-300"
+                >
+                  Quem Somos
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/simuproftestesupabase')}
+                  className="text-white px-6 py-3 rounded-md font-bold border border-purple-400"
+                >
+                  Simulações
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/editarperfilprof')}
+                  className="bg-purple-600 text-white px-8 py-3 rounded-md font-bold transition duration-300"
+                >
+                  {userName}
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </header>
+        <div className="flex items-center justify-center h-full">
+          <div className="bg-purple-950 ml-40 p-4 rounded-lg shadow-lg border border-purple-300 max-w-7xl w-full text-center relative">
+            <button
+              onClick={() => router.push("/escolhacriadasoucriarprof")}
+              className="absolute top-4 left-4 text-white hover:text-purple-300 transition duration-300"
+            >
+              <ArrowLeft size={32} />
+            </button>
+            <h1 className="text-2xl font-bold mb-6">Criar Questão</h1>
 
-          <button
-            onClick={handleSalvarQuestao}
-            className="mt-6 bg-purple-700 text-white px-6 py-3 rounded-md font-bold flex items-center justify-center gap-2 hover:bg-purple-500 transition duration-300 w-full"
-          >
-            <CheckCircle size={24} /> Confirmar Questão
-          </button>
+            <form>
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Enunciado</label>
+                <textarea
+                  className={`w-full p-2 border rounded text-black ${erros.enunciado ? 'border-red-500' : ''}`}
+                  value={enunciado}
+                  onChange={(e) => setEnunciado(e.target.value)}
+                />
+                {erros.enunciado && <p className="text-red-500 text-sm">{erros.enunciado}</p>}
+              </div>
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Resolução</label>
+                <textarea
+                  className={`w-full p-2 border rounded text-black ${erros.resolucao ? 'border-red-500' : ''}`}
+                  value={resolucao}
+                  onChange={(e) => setResolucao(e.target.value)}
+                />
+                {erros.resolucao && <p className="text-red-500 text-sm">{erros.resolucao}</p>}
+              </div>
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Alternativas (separadas por vírgula)</label>
+                <input
+                  type="text"
+                  className={`w-full p-2 border rounded text-black ${erros.alternativas ? 'border-red-500' : ''}`}
+                  value={alternativas}
+                  onChange={(e) => setAlternativas(e.target.value)}
+                />
+                {erros.alternativas && <p className="text-red-500 text-sm">{erros.alternativas}</p>}
+              </div>
+              <div className="mb-4">
+                <label className="block text-white text-left">Incógnita:</label>
+                <select
+                  value={incognita}
+                  onChange={(e) => setIncognita(e.target.value)}
+                  className={`w-full p-3 rounded-md text-black border border-gray-300 mb-4 ${erros.incognita ? 'border-red-500' : ''}`}
+                >
+                  <option value="">Selecione uma incógnita</option>
+                  <option value="velocidade">Velocidade</option>
+                  <option value="px">Px</option>
+                  <option value="py">Py</option>
+                  <option value="força normal">Força Normal</option>
+                  <option value="força de atrito">Força de Atrito</option>
+                  <option value="aceleração">Aceleração</option>
+                </select>
+                {erros.incognita && <p className="text-red-500 text-sm">{erros.incognita}</p>}
+              </div>
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Alternativa Correta</label>
+                <select
+                  value={alternativaCorreta}
+                  onChange={(e) => setAlternativaCorreta(e.target.value)}
+                  className={`w-full p-3 rounded-md text-black border border-gray-300 mb-4 ${erros.alternativaCorreta ? 'border-red-500' : ''}`}
+                >
+                  <option value="">Selecione a alternativa correta</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
+                {erros.alternativaCorreta && <p className="text-red-500 text-sm">{erros.alternativaCorreta}</p>}
+              </div>
+
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Tempo</label>
+                <button
+                  type="button"
+                  className="bg-purple-600 text-white py-2 px-4 rounded-md"
+                  onClick={() => setMostrarModalTempo(true)}
+                >
+                  Definir Tempo
+                </button>
+                {mostrarModalTempo && (
+                  <div className="modal bg-black bg-opacity-50 fixed top-0 left-0 w-full h-full flex items-center justify-center">
+                    <div className="bg-purple-900 border border-purple-200 p-8 rounded-md">
+                      <h3 className="text-xl font-bold mb-4">Tempo</h3>
+                      <div className="flex items-center mb-4">
+                        <div className="flex items-center mr-4">
+                          <label htmlFor="minutos" className="text-white mr-2">Minutos</label>
+                          <input
+                            id="minutos"
+                            type="number"
+                            min="0"
+                            value={tempoMinutos}
+                            onChange={(e) => setTempoMinutos(Math.max(0, +e.target.value))}
+                            placeholder="Minutos"
+                            className="p-2 border rounded text-black w-20"
+                          />
+                        </div>
+                        <span className="text-white">:</span>
+                        <div className="flex items-center ml-4">
+                          <label htmlFor="segundos" className="text-white mr-2">Segundos</label>
+                          <input
+                            id="segundos"
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={tempoSegundos}
+                            onChange={(e) => setTempoSegundos(Math.max(0, Math.min(59, +e.target.value)))}
+                            placeholder="Segundos"
+                            className="p-2 border rounded text-black w-20"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <button
+                          className="bg-red-500 text-white py-2 px-4 rounded-md mr-2"
+                          onClick={() => setMostrarModalTempo(false)}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          className="bg-green-500 text-white py-2 px-4 rounded-md"
+                          onClick={() => setMostrarModalTempo(false)}
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mb-4">
+                <label className="block mb-2 text-white">Anexo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="p-2 border rounded"
+                  onChange={handleAnexoChange}
+                />
+                {imageUrl && (
+                  <div className="mt-4 relative">
+                    <Image
+                      src={imageUrl}
+                      alt="Imagem anexa"
+                      width={200}
+                      height={200}
+                      className="object-contain"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-0 right-0 text-red-500"
+                      onClick={handleRemoveImage}
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="bg-green-500 text-white px-6 py-3 rounded-md"
+                  onClick={handleSalvarQuestao}
+                >
+                  Salvar Questão
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-
-      {mostrarModalAnexo && <ModalAnexo />}
-      {mostrarModalTempo && <ModalTempo />}
     </div>
   );
 };
 
-export default CriarQuestaoprof;
+export default CriarQuestao;

@@ -76,7 +76,7 @@ const Dashboardprof: React.FC = () => {
               <li>
                 
                 <button 
-                onClick={() => router.push("/simulacoesprof")}
+                onClick={() => router.push("/simuproftestesupabase")}
                 className="text-white hover:text-purple-300 px-6 py-3 rounded-md   transition duration-300">
                   Simulações
                 </button>

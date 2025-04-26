@@ -102,7 +102,7 @@ const Editarperfilprof: React.FC = () => {
             </li>
             <li>
               <button
-                onClick={() => router.push("/simulacoesprof")}
+                onClick={() => router.push("/simuproftestesupabase")}
                 className="text-white px-6 py-3 rounded-md font-bold border border-purple-400"
               >
                 Simulações

@@ -38,7 +38,7 @@ const Cadastro: React.FC = () => {
         accountType,
       });
 
-      localStorage.setItem("user", JSON.stringify({ name, email, accountType, uid: user.uid }));
+      localStorage.setItem("user", JSON.stringify({ name, email, accountType, uid: user.uid })); // Incluímos o uid aqui
 
       router.push(accountType === "professor" ? "/dashboardprof" : "/dashboardaluno");
     } catch (err: any) {
@@ -61,12 +61,12 @@ const Cadastro: React.FC = () => {
 
       if (snapshot.exists()) {
         userData = snapshot.val();
+        localStorage.setItem("user", JSON.stringify({ ...userData, uid: user.uid })); // Incluímos o uid aqui
       } else {
         userData = { name: user.displayName, email: user.email, accountType: "estudante" };
         await set(userRef, userData);
+        localStorage.setItem("user", JSON.stringify({ ...userData, uid: user.uid })); // Incluímos o uid aqui também
       }
-
-      localStorage.setItem("user", JSON.stringify(userData));
 
       router.push("/dashboardaluno");
     } catch (err: any) {

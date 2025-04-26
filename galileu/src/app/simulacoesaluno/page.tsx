@@ -106,11 +106,7 @@ const SimulacoesAluno: React.FC = () => {
              Teste 1 de Análise
           </button>
                
-          <button 
-            onClick={() => router.push("/testedesaladeaula")}
-            className="bg-gray-200 text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 text-lg shadow-md hover:bg-gray-300 transition duration-300">
-             Teste de sala(temporario)
-          </button>
+         
 
           <button 
             onClick={() => router.push("/testerechart")}
